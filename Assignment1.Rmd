@@ -1,0 +1,55 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+    
+if (!requireNamespace("GEOmetadb", quietly = TRUE))
+    BiocManager::install("GEOmetadb")
+    
+if(!file.exists('GEOmetadb.sqlite')) GEOmetadb::getSQLiteFile()
+
+con <- DBI::dbConnect(RSQLite::SQLite(),'GEOmetadb.sqlite')
+
+geo_tables <- DBI::dbListTables(con)
+geo_tables
+
+results <- DBI::dbGetQuery(con,'select * from gpl limit 5')
+knitr::kable(head(results[,1:5]), format = "pipe")
+
+
+sql <- paste("SELECT DISTINCT gse.title,gse.gse, gpl.title,",
+             " gse.submission_date,",
+             " gse.supplementary_file",
+             "FROM",
+             "  gse JOIN gse_gpl ON gse_gpl.gse=gse.gse",
+             "  JOIN gpl ON gse_gpl.gpl=gpl.gpl",
+             "WHERE",
+             "  gse.submission_date > '2018-01-01' AND",
+             "  gse.title LIKE '%SARS-CoV-2%' AND", 
+             "  gpl.organism LIKE '%Homo sapiens%' AND",
+             "  gpl.technology LIKE '%high-throughput sequencing%' ",
+             "  ORDER BY gse.submission_date DESC",sep=" ")
+             
+rs <- DBI::dbGetQuery(con,sql)
+knitr::kable(rs, format = "pipe")
+
+counts_files <- rs$supplementary_file[grep(rs$supplementary_file,
+                              pattern = "count",ignore.case = TRUE)]
+knitr::kable(counts_files, format = "pipe")
+
+sql2 <- paste("SELECT DISTINCT gse.title,gse.gse, gpl.title,",
+             " gse.submission_date,",
+             " gse.supplementary_file",
+             "FROM",
+             "  gse JOIN gse_gpl ON gse_gpl.gse=gse.gse",
+             "  JOIN gpl ON gse_gpl.gpl=gpl.gpl",
+             "WHERE",
+             "  gse.submission_date > '2018-01-01' AND",
+             "  gse.title LIKE '%Lung Cancer%' AND", 
+             "  gpl.organism LIKE '%Homo sapiens%' AND",
+             "  gpl.technology LIKE '%high-throughput sequencing%' ",
+             "  ORDER BY gse.submission_date DESC",sep=" ")
+
