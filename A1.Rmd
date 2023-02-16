@@ -1,0 +1,294 @@
+---
+title: "Assignment 1"
+author: "Shahzada Muhammad Shameel Farooq"
+output:
+  html_document:
+    toc: true
+    df_print: paged
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+### Dataset Informtaion
+
+GSE Accession number: GSE152323
+Data set title: Gene expression analysis of RECQ1-regulated transcriptome in breast cancer cells.
+Associated Publication: Genome-Wide Analysis Unveils DNA Helicase RECQ1 as a Regulator of Estrogen Response Pathway in Breast Cancer Cells
+
+### Install the necessary Packages
+``` {r message=FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+if (!requireNamespace("GEOmetadb", quietly = TRUE))
+    BiocManager::install("GEOmetadb")
+
+if (!requireNamespace("edgeR", quietly = TRUE)) 
+    BiocManager::install("edgeR")
+
+if (!requireNamespace("GEOquery", quietly = TRUE)) 
+    BiocManager::install("GEOquery")
+
+if (!requireNamespace("kableExtra", quietly = TRUE)) 
+    BiocManager::install("kableExtra")
+
+library(BiocManager)
+
+library(GEOmetadb)
+
+library(edgeR)
+
+library(GEOquery)
+
+library(kableExtra)
+```
+
+### Download the Dataset 
+```{r message=FALSE}
+
+# If file is not downloaded, download and get the path to raw counts data
+if (!file.exists("GSE152323")){
+  sfiles <- getGEOSuppFiles("GSE152323")
+  numberFiles <- rownames(sfiles)
+
+# Else path to the already downloaded file 
+}else{
+  sfiles <- paste0("GSE152323", "/", list.files(path="GSE152323"))
+  numberFiles <- sfiles
+}
+
+```
+
+### Get the expression Data
+The Dataset has 1 supplementary file associated with it. We are interested in 
+accessing the Expression file. That one file is the Expression File.
+```{r message=FALSE}
+
+# Read the raw counts file
+expressionFile <- read.delim(numberFiles[1], header = TRUE, check.names = FALSE)
+
+# The first column of the expression data is not named. It contains the ENSEMBL 
+# Gene Ids. We rename the first column. 
+
+colnames(expressionFile)[1] <- "ensembl_gene_id" 
+
+# Display some of the data
+kableExtra::kable(expressionFile[1:15,1:5], format = "html")
+```
+
+### Define Groups
+```{r message=FALSE}
+
+
+samples <- data.frame(lapply(colnames(expressionFile)[2:10],
+                             FUN=function(x){unlist(strsplit(x, split="\\_"))[c(2,4)]}))
+colnames(samples) <- colnames(expressionFile)[2:10]
+rownames(samples) <- c("cell_type", "patients")
+samples <- data.frame(t(samples))
+
+```
+
+
+### Data Exploration
+```{r message=FALSE}
+gse <- getGEO("GSE152323",GSEMatrix=FALSE)
+kableExtra::kable(data.frame(head(Meta(gse))), format = "html")
+```
+### Information about the platform
+```{r echo=FALSE}
+current_gpl <- names(GPLList(gse))[1]
+current_gpl_info <- Meta(getGEO(current_gpl))
+
+```
+Platform title: `r current_gpl_info$title`\
+Last update date: `r current_gpl_info$last_update_date`\
+Organism: `r current_gpl_info$organism`\
+Number of GEO datasets that use this technology: `r length(current_gpl_info$series_id)`\
+Number of GEO samples that use this technology: `r length(current_gpl_info$sample_id)`\
+
+
+### Check to see if Data has duplicate genes
+```{r} 
+# Creates a table sorted in decreasing order showing the frequency of each gene
+summarized_gene_counts <- sort(table(expressionFile$`ensembl_gene_id`),
+                               decreasing = TRUE)
+# Displays the table in html format. If the frequecy begins with 1, we can be 
+# sure there is no duplicate gene since we are biewing in decreasing order
+kableExtra::kable(table(expressionFile$`ensembl_gene_id`)[1:10], format="html")
+
+# No duplicates
+```
+### Filter the data
+```{r} 
+# Get cpm using edgeR package, counts per million for all samples 
+cpms = edgeR::cpm(expressionFile[,2:10])
+rownames(cpms) <- expressionFile[,1]
+
+# get rid of low counts
+keep = rowSums(cpms >1) >=3
+expressionFile_filtered = expressionFile[keep,]
+
+
+# Check for NA
+apply(expressionFile_filtered, 2, function(x) any(is.na(x)))
+```
+### Retreiving HUGO symbols
+
+```{r Mapping to HUGO Symbols}
+ensembl <- biomaRt::useMart("ensembl")
+ensembl<- biomaRt::useDataset("hsapiens_gene_ensembl",mart=ensembl)
+
+conversion_file <- "expressionFile_conversion.rds" 
+if(file.exists(conversion_file)){
+  expressionFile_conversion <- readRDS(conversion_file)
+} else {
+  expressionFile_conversion <- biomaRt::getBM(attributes = c("ensembl_gene_id","hgnc_symbol"),
+                            filters = c("ensembl_gene_id"),
+                            values = expressionFile_filtered$`Ensembl Gene ID`,
+                            mart = ensembl)
+  saveRDS(expressionFile_conversion, conversion_file)
+}
+# Some Hugo symbols are empty cells change to NA
+expressionFile_conversion[expressionFile_conversion == ""] <- NA
+expressionFile_conversion <- na.omit(expressionFile_conversion)
+
+# Checks to see if there is any duplicate value in either column
+apply(expressionFile_conversion, 2, function(x) any(is.na(x)))
+
+originalNumber <- nrow(expressionFile_filtered)
+
+```
+
+### Getting data frame which contains HUGO symbols column
+```{r}
+intermediate <- expressionFile_filtered[which(expressionFile_conversion$ensembl_gene_id %in% expressionFile_filtered$ensembl_gene_id), ]
+expressionFile_filtered <- merge(expressionFile_conversion, intermediate, by="ensembl_gene_id") 
+rownames(expressionFile_filtered) <- expressionFile_filtered$hgnc_symbol
+```
+Number of genes that do not have HGNC symbol: `r originalNumber - nrow(expressionFile_filtered)`
+
+#### Boxplot
+```{r eval=TRUE, warning=FALSE}
+# Calculates the data to plot using cpm function in edgeR package, counts per million
+data2plot <- log2(edgeR::cpm(expressionFile_filtered[,3:11]))
+
+boxplot(data2plot, xlab = "Samples", ylab = "log2 CPM", las = 2, cex = 0.5, cex.lab=0.5,
+  cex.axis=0.5, main = "RNASeq samples")
+abline(h = median(apply(data2plot, 2, median)),
+       col = "green", lwd = 0.6, lty = "dashed")
+
+```
+
+### Density Plot
+```{r eval=TRUE}
+counts_density <- apply(log2(edgeR::cpm(expressionFile_filtered[,3:11])),
+                        2, density)
+xlim <- 0; ylim <- 0
+for (i in 1:length(counts_density)) {
+  xlim <- range(c(xlim, counts_density[[i]]$x));
+  ylim <- range(c(ylim, counts_density[[i]]$y))
+}
+cols <- rainbow(length(counts_density))
+ltys <- rep(1, length(counts_density))
+plot(counts_density[[1]], xlim=xlim, ylim=ylim, type="n",
+     ylab="Smoothing density of log2-CPM",
+     main="log2 CPM Density Distributions of RNASeq Samples", cex.lab=0.85)
+for (i in 1:length(counts_density))
+  lines(counts_density[[i]], col=cols[i], lty=ltys[i])
+legend("topleft", colnames(data2plot),
+       col=cols, lty=ltys, cex=0.3,
+       border="blue", text.col = "green4",
+       merge = TRUE, bg = "gray90")
+```
+
+### Applying Normalisation
+```{r}
+filtered_data_matrix <- as.matrix(expressionFile_filtered[,3:11])
+rownames(filtered_data_matrix) <- expressionFile_filtered$ensembl_gene_id
+d <- edgeR::DGEList(counts=filtered_data_matrix, group=samples$cell_type)
+expressionFile_norm <- edgeR::calcNormFactors(d)
+
+```
+
+### Box plot post normalisation
+```{r eval=TRUE, warning=FALSE}
+# Calculates the data to plot using cpm function in edgeR package, counts per million
+data2plot <- log2(edgeR::cpm(expressionFile_norm))
+
+boxplot(data2plot, xlab = "Samples", ylab = "log2 CPM", las = 2, cex = 0.5, cex.lab=0.5,
+  cex.axis=0.5, main = "log2 RNASeq samples - Post Normalisation")
+abline(h = median(apply(data2plot, 2, median)),
+       col = "green", lwd = 0.6, lty = "dashed")
+
+```
+### Density plot Post Normalisation
+```{r eval=TRUE}
+counts_density <- apply(log2(edgeR::cpm(expressionFile_norm)),
+                        2, density)
+xlim <- 0; ylim <- 0
+for (i in 1:length(counts_density)) {
+  xlim <- range(c(xlim, counts_density[[i]]$x));
+  ylim <- range(c(ylim, counts_density[[i]]$y))
+}
+cols <- rainbow(length(counts_density))
+ltys <- rep(1, length(counts_density))
+plot(counts_density[[1]], xlim=xlim, ylim=ylim, type="n",
+     ylab="Smoothing density of log2-CPM",
+     main="log2 CPM Density Distributions of RNASeq Samples - Post Normalisation", cex.lab=0.85)
+for (i in 1:length(counts_density))
+  lines(counts_density[[i]], col=cols[i], lty=ltys[i])
+legend("topleft", colnames(data2plot),
+       col=cols, lty=ltys, cex=0.3,
+       border="blue", text.col = "green4",
+       merge = TRUE, bg = "gray90")
+```
+
+### Creating MDS plot
+```{r}
+edgeR::plotMDS.DGEList(expressionFile_norm, labels=rownames(samples), col=c("red", "blue", "green")[factor(samples$cell_type)], cex=0.7)
+```
+
+
+
+### Interpret and Documemt
+
+**What are the control and test conditions of the dataset?**
+The control are the MCF7 transfected with control siRNA, while the test conditions arethe MCF7 cells transfected with either RECQ1 or ESR1 siRNAs.
+
+**Why is the dataset of interest to you?**
+The data set is of interest to me as a family member was diagnosed with breast cancer. RNA-seq experiments such as these can provide insight into the mechanism by which breast cancer works. This will allow researchers to develop therapies which will help those affected.
+
+**Were there expression values that were not unique for specific genes? How did you handle these?**
+There were no duplicate genes in the dataset, all had unique ENSEMBL Ids. These ENSEMBL Ids mapped to unique HUGO symbols.
+
+**Were there expression values that could not be mapped to current HUGO symbols?**
+Yes, there were expression values that were not mapped to current HUGO symbols. There were also some that were mapped to blank symbols, these were also considered to be not mapped to current HUGO symbols. 
+
+**How many outliers were removed?**
+In the beginning the dataset had 56632 genes. After removing genes which had low counts 14011 genes were left. 
+
+**How did you handle replicates?**
+The dataset contains three groups with three replicates in each group. The three groups are cells transfected with control siRNA, ESR1 siRNA or RECQ1 siRNA.
+
+**What is the final coverage of your dataset?**
+The final coverage of the dataset is 12822 genes.
+
+### References
+
+Davis, S. and Meltzer, P. S. GEOquery: a bridge between the Gene Expression Omnibus (GEO) and BioConductor. Bioinformatics, 2007, 14, 1846-1847
+
+Mapping identifiers for the integration of genomic datasets with the R/Bioconductor package biomaRt. Steffen Durinck, Paul T. Spellman, Ewan Birney and Wolfgang Huber, Nature Protocols 4, 1184-1191 (2009).
+
+Robinson MD, McCarthy DJ and Smyth GK (2010). edgeR: a Bioconductor package for differential expression analysis of digital gene expression data. Bioinformatics 26, 139-140
+
+Lu X, Redon CE, Tang W, et al. Genome-Wide Analysis Unveils DNA Helicase RECQ1 as a Regulator of Estrogen Response Pathway in Breast Cancer Cells. Mol Cell Biol. 2021;41(4):e00515-20. Published 2021 Mar 24. doi:10.1128/MCB.00515-20
+
+Zhu Y, Davis S, Stephens R, Meltzer PS, Chen Y. GEOmetadb: powerful alternative search
+engine for the Gene Expression Omnibus. Bioinformatics. 2008 Dec 1;24(23):2798-800.
+doi: 10.1093/bioinformatics/btn520. Epub 2008 Oct 7. PubMed PMID: 18842599; PubMed
+Central PMCID: PMC2639278.
+
+
