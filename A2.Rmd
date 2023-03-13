@@ -1,0 +1,178 @@
+---
+title: "Assignment 2"
+author: "Shahzada Muhammad Shameel Farooq"
+output:
+  html_document:
+    toc: true
+    df_print: paged
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction 
+The main aim of this assignment, A2, is to conduct differential gene expression 
+using the normalized data-set from A1. We then rank the genes according to the 
+differential expression. Using the ranked list we then conduct thresholded over 
+representation analysis to highlight dominant themes in the top set of genes. 
+
+## Data Overview 
+The data we use for the assignment will be the normalized counts data derived from normalizing the raw counts data from GEO152323. The original raw counts dataset was generated through an RNA-seq assay where the researchers transfected MCF7 cells with either control siRNA or siRNAs against RECQ1 or ESR1. 
+
+We normalized the raw counts data in Assignment 1 using the edgeR package and saved the normalized data as a csv file called 'normalized_counts.csv'. This data has a column for ensemble gene ids as well as hgnc symbols. 
+
+## Load required Packages 
+```{r requiredPackages, warning=FALSE, message=FALSE}
+if (!require('ggplot2')) {
+  install.packages('ggplot2')
+  library('ggplot2')
+}
+if (!require('ComplexHeatmap')) {
+  install.packages('ComplexHeatmap')
+}
+if (!require('gprofiler2')) {
+  install.packages('gprofiler2')
+}
+if (!require('cowplot')) {
+  install.packages('cowplot')
+}
+if (!require('plotly')) {
+  install.packages('plotly')
+}
+```
+
+## Load Data
+```{r warning=FALSE, message=FALSE}
+normalized_counts <- read.csv(file = "normalized_counts.csv")
+```
+
+In the paper the authors made two separate comparisons, these comparisons were
+CTL vs RECQ1 siRNA and CTL vs ESR1 siRNA. Essentially an siRNA is made to target a
+specific gene and it knocks that gene out, so no protein can be made by that gene. 
+
+Hence, we will partition the data set into CTL-RECQ1 and CTL-ESR1. This will allow 
+us to conduct differential gene expression CTL vs RECQ1 and CTL vs ESR1.
+
+## Partiton Data
+
+```{r warning=FALSE, message=FALSE}
+# remove the first row in both since that row is of no use to us
+
+# remove rows 4, 5 and 10 for CTL - RECQ1 
+normalized_counts_RECQ1_CTL <- normalized_counts[, -c(1, 4, 5, 10)]
+
+# remove rows 7, 8 and 12 for CTL - ESR1
+normalized_counts_ESR1_CTL <- normalized_counts[, -c(1, 7, 8, 12)]
+
+
+```
+
+In the MDS plot from A1 we see that there is clustering according to the cell type
+whether the cell type was control or not. 
+So the model we use for differential expression must account for that.
+It also must account for the patient/replicate.
+
+## Prepare model for Differential Expression
+
+```{r warning=FALSE, message=FALSE}
+
+# Defining the groups - code from lecture
+samples <- data.frame(lapply(colnames(normalized_counts_RECQ1_CTL)[3:8],
+                             FUN=function(x){unlist(strsplit(x, split="\\_"))[c(2,4)]}))
+colnames(samples) <- colnames(normalized_counts_RECQ1_CTL)[3:8]
+rownames(samples) <- c("cell_type", "patients")
+samples <- data.frame(t(samples))
+
+# Order the data so that the common cell types are together and the patients are
+# in ascending order in the data frame
+samples <- arrange(samples, rownames(samples))
+
+# The model design for the differential expression is taking into account the 
+# cell types and patients in its design
+model_design_RECQ1_CTL <- model.matrix(~ samples$cell_type + samples$patients)
+
+# Create the matrix for getting p-values
+expressionMatrix <- as.matrix(normalized_counts_RECQ1_CTL[,3:8])
+rownames(expressionMatrix) <-
+  normalized_counts_RECQ1_CTL$ensembl_gene_id
+colnames(expressionMatrix) <-
+  colnames(normalized_counts_RECQ1_CTL)[3:8]
+
+# Creating a minimal set using the Biobase package in R
+MinSet <- Biobase::ExpressionSet(assayData = expressionMatrix)
+
+fit <- limma::lmFit(MinSet, model_design_RECQ1_CTL)
+
+fit2 <- limma::eBayes(fit, trend = TRUE)
+
+
+topfit <- limma::topTable(fit2,
+                   coef=ncol(model_design_RECQ1_CTL),
+                   adjust.method = "BH",
+                   number = nrow(expressionMatrix))
+
+output_hits <- merge(normalized_counts_RECQ1_CTL[,1:2],
+                     topfit,
+                     by.y=0,by.x=1,
+                     all.y=TRUE)
+
+output_hits <- output_hits[order(output_hits$P.Value),]
+
+length(which(output_hits$P.Value < 0.05))
+
+length(which(output_hits$adj.P.Val < 0.05))
+
+downregulated = output_hits$ensembl_gene_id[which(output_hits$logFC < 0)]
+upregulated = output_hits$ensembl_gene_id[which(output_hits$logFC > 0)]
+
+#write.csv(downregulated, file = "downregulatedGenes.csv")
+#write.csv(upregulated, file = "upregulatedGenes.csv")
+
+# Preparing data for MA plot
+
+logFC <- topfit[, -c(3, 4, 5, 6)]
+logPval <- topfit[, -c(1, 3, 5, 6)]
+logPval <- -log10(logPval$P.Value)
+
+
+# MA plot
+plot(logPval, logFC$logFC, xlab="log P val", ylab="log-fold-change", main = "MA plot: RECQ1 siRNA vs CTL")
+
+
+```
+
+## HeatMap of TopHits
+
+```{r warning=FALSE, message=FALSE}
+# Create a heatmap
+
+topHits <- output_hits[which(output_hits$P.Value < 0.05),]
+
+heatmap_matrix <- normalized_counts_RECQ1_CTL
+
+heatmap_matrix_tophits <- t(
+  scale(t(heatmap_matrix[
+    which(rownames(heatmap_matrix) %in% rownames(topHits)), 3:8])))
+
+if(min(heatmap_matrix_tophits) == 0){
+    heatmap_col = circlize::colorRamp2(c( 0, max(heatmap_matrix_tophits)), 
+                             c( "white", "red"))
+  } else {
+    heatmap_col = circlize::colorRamp2(c(min(heatmap_matrix_tophits), 0,
+      max(heatmap_matrix_tophits)), c("blue", "white", "red"))
+  }
+current_heatmap <- Heatmap(as.matrix(heatmap_matrix_tophits),
+                           cluster_rows = TRUE,
+                           cluster_columns = TRUE,
+                               show_row_dend = TRUE,
+                               show_column_dend = TRUE, 
+                               col=heatmap_col,
+                               show_column_names = TRUE, 
+                               show_row_names = FALSE,
+                               show_heatmap_legend = TRUE,
+                               )
+current_heatmap
+
+```
+
+
