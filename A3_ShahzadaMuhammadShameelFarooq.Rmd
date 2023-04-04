@@ -1,0 +1,145 @@
+---
+title: "Assignment 3"
+author: "Shahzada Muhammad Shameel Farooq"
+output:
+  html_document:
+    toc: true
+    df_print: paged
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction 
+The main aim of this assignment is to conduct non-thresholded pathway analysis and summarize and visualise the results using Cytoscape and Enrichment map pipeline. To conduct the non-thresholded pathway analysis we will use the ranked data that we created in A2. 
+To give a little background, in A1 we took the raw counts data and normalized the data set. Then in A2 we took that normalized data and performed differential gene expression using the limma package. 
+
+
+## Data Overview 
+The data we use for the assignment will be the ranked data derived from our A2. The original raw counts dataset was generated through an RNA-seq assay where the researchers transfected MCF7 cells with either control siRNA or siRNAs against RECQ1 or ESR1. The raw counts data was derived from GEO152323.
+
+## Non thresholded Gene set Enrichment Analysis
+
+**1. What method did you use? What genesets did you use? Make sure to specify versions and cite your methods.**
+
+In order to conduct the Gene set Enrichment Analysis, I made use of GSEA version 4.3.2 and ran the GSEA pre-ranked analysis using that tool. The genesets I used were curated by the Baderlab, I used the most recent version of the human genesets available. The name of the exact gmt file is Human_GOBP_AllPathways_no_GO_iea_March_02_2023_symbol.gmt. The genset is from March 2nd 2023.
+
+To run the GSEA pre-ranked analysis, I used the following parameters:
+
+* Number of permutations: 1000
+* Maximum geneset size: 500
+* Minimum geneset size: 15
+* Collapse/Remap to gene symbols: No_Collapse
+
+
+**2. Summarize your enrichment results.**
+
+The positive phenotype are the genes that are upregulated, while the negative phenotype are the genes that are downregulated.
+
+For the upregulated genes 2627/5425 genesets were upregulated. 58 genesets were significant with FDR < 25%. 143 genesets significantly enriched at a nominal p-value < 1%. 362 genesets are significantly enriched with a nominal p-value < 5%.
+
+For the downregulated genes, 2798/5425 genesets were downregulated. 0 genesets were significantly enriched with FDR < 25%. 50 genesets were significantly enriched at a nominal p-value < 1%. 237 genesets significantly enriched with a nominal p-value < 5%.
+
+![Figure 1: GSEA results summary](figures_A3/GSEA_summary.jpg)
+
+
+
+**3. How do these results compare to the results from the thresholded analysis in Assignment #2. Compare qualitatively. Is this a straight forward comparison? Why or why not?**
+
+When we compare the results from our thresholded analysis from Assignment #2, we can see that there are some similarities as to the genesets that are returned to us in the upregulated and downregulated genesets. However, there are differences as well, due to the fact that our GSEA pre-ranked analysis took in all of the genes while the g:Profiler only looked at a subset of genes that were significantly expressed. Hence, the comparison is not straight forward.
+
+
+If we look at the GSEA results for the positive phenotype (upregulated genesets) and compare that with the results of the upregulated genesets from g:profiler we can see that both return gene sets that are involved in cell development, cell-cell adhesion e.t.c. 
+
+![Figure 2: GSEA results positive phenotype](figures_A3/GSEA-pos.jpg)
+
+
+
+
+If we look at the GSEA results for the negative phenotype (downregulated genesets) and compare that with the results of the downregulated genesets from g:profiler we can some genesets that are similar. The geneset involved with hallmark estrigen response is no.1 for the GSEA pre-ranked analysis.
+
+![Figure 3: GSEA results negative phenotype](figures_A3/GSEA-neg.jpg)
+
+
+## Visualize Gene set Enrichment Analysis in Cytoscape
+
+**1.Create an enrichment map - how many nodes and how many edges in the resulting map? What thresholds were used to create this map? Make sure to record all thresholds. Include a screenshot of your network prior to manual layout. **
+
+Cytoscape version 3.9.1 was downloaded.
+
+To create the enrichment map, I first installed the EnrichmentMap application in cytoscape. This application was developed by the bader lab. Next, I supplied the EnrichmentMap with the GSEA pre-ranked output file. The application automatically grabbed other files which it needed. These included the rank file and the geneset file which was used for the GSEA pre-ranked analysis.
+
+The enrichment map has 58 nodes and 34 edges.
+
+I used the following thresholds to create the map
+
+* Node cutoff p-value: 0.05
+* Edge cutoff value: 0.375
+
+EnrichmentMap creation parameters
+
+* P-value: 1.0
+* FDR Q-value: 0.25
+* Jaccard overlap combined: 0.375
+
+Note: Only up regulated genesets are present since only they passed the threshold values.
+
+![Figure 4: Initial network after enrichment mapping](figures_A3/EM-prior.png)
+
+
+
+
+**2. Annotate your network - what parameters did you use to annotate the network. If you are using the default parameters make sure to list them as well.**
+
+To annotate the network I installed the AutoAnnotate app from the available apps in Cytoscape. The following parameters were used:
+
+* Annotate entire network
+* Use clusterMaker App
+* Label column: GS_DESCR
+* Cluster algorithm: MCL Cluster
+* Edge weight column: similarity_coefficient
+* Normalization Factor: 0.5
+* Cluster Cutoff: 1.0
+
+
+**3. Make a publication ready figure - include this figure with proper legends in your notebook.**
+
+![Figure 5: Publication ready figure of the Annotated network](figures_A3/EM-Annotated.png)
+
+
+
+
+
+![Figure 6: Figure legend](figures_A3/legend.jpg)
+
+
+
+
+
+**4. Collapse your network to a theme network. What are the major themes present in this analysis? Do they fit with the model? Are there any novel pathways or themes?**
+
+The network was collapsed to a theme network using AutoAnnotate's coSE Cluster Layout, as shown in Figure 7. Major themes are represented by large clusters of gene sets/nodes with a high number of connections/edges, with two being particularly relevant:
+
+* Mitotic spindle organisation
+* Sperm motility celium
+
+The mitotic spindle organisation being up regulated fits with the model. 
+
+![Figure 7: Theme Network](figures_A3/EM-Themes.png)
+
+
+
+
+
+## Interpretation
+
+**1. Do the enrichment results support conclusions or mechanism discussed in the original paper? How do these results differ from the results you got from Assignment #2 thresholded methods?**
+
+-ADD-
+
+
+
+**2. Can you find evidence, i.e. publications, to support some of the results that you see. How does this evidence support your result?**
+
+-ADD-
+
