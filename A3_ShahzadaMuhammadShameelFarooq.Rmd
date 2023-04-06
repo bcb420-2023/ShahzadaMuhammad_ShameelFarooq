@@ -135,11 +135,48 @@ The mitotic spindle organisation being up regulated fits with the model.
 
 **1. Do the enrichment results support conclusions or mechanism discussed in the original paper? How do these results differ from the results you got from Assignment #2 thresholded methods?**
 
--ADD-
+Yes, the enrichment results support the conclusions or mechanism discussed in the original paper. We see in the downregulated genesets, Estrogen response is the top term and this is mentioned heavily in the paper. 
+
+The results of the GSEA provide us with more information as to which genesets are upregulated and downregualed respectively.
 
 
 
 **2. Can you find evidence, i.e. publications, to support some of the results that you see. How does this evidence support your result?**
 
--ADD-
+The paper 'The p38 Pathway: From Biology to Cancer Therapy' by Martinez-Limon, et al. talks about how the p38 MAPK pathway can promote tumor growth. The geneset corresponding to p38 MAPK is upregulated.
+
+
+**3. Choose a specific pathway or theme to investigate in more detail. Why did you choose this pathway or theme? Show the pathway or theme as a gene network or as a pathway diagram. Annotate the network or pathway with your original log fold expression values and p-values to show how it is effected in your model.**
+
+I chose to investigate the regulation of spindle organisation pathway in detail. I chose this since it was part of a significant theme and the node itself was quite significant. 
+
+The gene network map was created using the GeneMania app in cytoscape. 
+
+![Figure 8: Gene Network](figures_A3/PostAnalysis.png)
+
+
+
+
+
+
+## References
+
+Lu X, Redon CE, Tang W, et al. Genome-Wide Analysis Unveils DNA Helicase RECQ1 as a Regulator of Estrogen Response Pathway in Breast Cancer Cells. Mol Cell Biol. 2021;41(4):e00515-20. Published 2021 Mar 24. doi:10.1128/MCB.00515-20
+
+Montojo, J., Zuberi, K., Rodriguez, H., Kazi, F., Wright, G., Donaldson, S. L., Morris, Q., & Bader, G. D. (2010). GeneMANIA Cytoscape plugin: fast gene function predictions on the desktop. Bioinformatics (Oxford, England), 26(22), 2927–2928. https://doi.org/10.1093/bioinformatics/btq562
+
+Isserlin, R. (2023). Lecture 10 - Recap and GSA. Quercus.
+https://q.utoronto.ca/courses/294979/files/24035557?module_item_id=4287874&fd_cookie_set=1
+
+Isserlin, R. (2023). Lecture 11 -Enrichment Map and other Cytoscape Appsother Cytoscape Apps. Quercus. https://q.utoronto.ca/courses/294979/files/24035526?module_item_id=4287888
+
+Isserlin, R. (2023). Lecture 12 -Enrichment Map and other Cytoscape Appsother Cytoscape Apps. Quercus. https://q.utoronto.ca/courses/294979/files/24035559?module_item_id=4287901
+
+Merico, D., Isserlin, R., Stueker, O., Emili, A., & Bader, G. D. (2010). Enrichment map: a network-based method for gene-set enrichment visualization and interpretation. PloS one, 5(11), e13984. https://doi.org/10.1371/journal.pone.0013984
+
+Subramanian, A., Tamayo, P., Mootha, V. K., Mukherjee, S., Ebert, B. L., Gillette, M. A., Paulovich, A., Pomeroy, S. L., Golub, T. R., Lander, E. S., & Mesirov, J. P. (2005). Gene set enrichment analysis: a knowledge-based approach for interpreting genome-wide expression profiles. Proceedings of the National Academy of Sciences of the United States of America, 102(43), 15545–15550. https://doi.org/10.1073/pnas.0506580102
+
+Martínez-Limón, A., Joaquin, M., Caballero, M., Posas, F., & de Nadal, E. (2020). The p38 Pathway: From Biology to Cancer Therapy. International journal of molecular sciences, 21(6), 1913. https://doi.org/10.3390/ijms21061913
+
+
 
